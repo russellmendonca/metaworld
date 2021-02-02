@@ -1,12 +1,12 @@
 from gym.spaces import Box
-
+import numpy as np
 from metaworld.envs.asset_path_utils import full_v1_path_for
 from metaworld.envs.mujoco.sawyer_xyz.sawyer_xyz_env import SawyerXYZEnv, _assert_task_is_set
 
 
 class SawyerReachPushPickPlaceEnv(SawyerXYZEnv):
 
-    def __init__(self):
+    def __init__(self, task_type):
         liftThresh = 0.04
         goal_low=(-0.1, 0.8, 0.05)
         goal_high=(0.1, 0.9, 0.3)
@@ -15,15 +15,22 @@ class SawyerReachPushPickPlaceEnv(SawyerXYZEnv):
         obj_low = (-0.1, 0.6, 0.02)
         obj_high = (0.1, 0.7, 0.02)
 
-        self.task_types = ['pick_place', 'reach', 'push']
-
+      
         super().__init__(
             self.model_name,
             hand_low=hand_low,
             hand_high=hand_high,
         )
 
-        self.task_type = None
+        self.task_type = task_type
+        if self.task_type == 'pick_place':
+            self.goal = np.array([0.1, 0.8, 0.2])
+        elif self.task_type == 'reach':
+            self.goal = np.array([-0.1, 0.8, 0.2])
+        elif self.task_type == 'push':
+            self.goal = np.array([0.1, 0.8, 0.02])
+ 
+
         self.init_config = {
             'obj_init_angle': .3,
             'obj_init_pos': np.array([0, 0.6, 0.02]),
@@ -69,8 +76,13 @@ class SawyerReachPushPickPlaceEnv(SawyerXYZEnv):
         ob = super().step(action)
         reward, _, reachDist, _, pushDist, pickRew, _, placingDist = self.compute_reward(action, ob)
         self.curr_path_length +=1
-
-        goal_dist = placingDist if self.task_type == 'pick_place' else pushDist
+        
+        if self.task_type == 'reach':
+            goal_dist = reachDist
+        elif self.task_type == 'push':
+            goal_dist = pushDist
+        elif self.task_type == 'pick_place':
+            goal_dist = placingDist
 
         if self.task_type == 'reach':
             success = float(reachDist <= 0.05)
@@ -84,15 +96,13 @@ class SawyerReachPushPickPlaceEnv(SawyerXYZEnv):
             'goalDist': goal_dist,
             'success': success
         }
-
         return ob, reward, False, info
 
     @property
     def _target_site_config(self):
         far_away = np.array([10., 10., 10.])
         return [
-            ('goal_' + t, self._target_pos if t == self.task_type else far_away)
-            for t in self.task_types
+            ('goal_' + self.task_type, self._target_pos )
         ]
 
     def _get_pos_objects(self):
@@ -109,7 +119,7 @@ class SawyerReachPushPickPlaceEnv(SawyerXYZEnv):
 
     def reset_model(self):
         self._reset_hand()
-        self._target_pos = self._get_state_rand_vec()
+        self._target_pos = self.goal.copy()
         self.obj_init_pos = self.adjust_initObjPos(self.init_config['obj_init_pos'])
         self.obj_init_angle = self.init_config['obj_init_angle']
         self.objHeight = self.data.get_geom_xpos('objGeom')[2]
