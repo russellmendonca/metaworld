@@ -4,14 +4,14 @@
     <worldbody>
         <include file="sawyer_xyz_base.xml"></include>
 
-        <body name="drawer" pos="-0.17 0.9 0.04">
+        <body name="drawer1" pos="-0.17 0.9 0.04">
           <geom rgba="1 0.3 0.3 1" type="box" contype="1" size="0.1 0.1 0.001" name="drawer_bottom" conaffinity="1" pos="0 0 0.005" mass="1000" material="light_wood_v2" />
           <geom rgba="1 0.3 0.3 1" type="box" solimp="0.99 0.99 0.01" contype="1" size="0.1 0.001 0.05" name="drawer_wall1" conaffinity="1" pos="0.0 0.1 0.054" mass="1000" solref="0.01 1" material="light_wood_v2"/>
           <geom rgba="1 0.3 0.3 1" type="box" solimp="0.99 0.99 0.01" contype="1" size="0.1 0.001 0.05" name="drawer_wall2" conaffinity="1" pos="0.0 -0.1 0.054" mass="1000" solref="0.01 1" material="light_wood_v2"/>
           <geom rgba="1 0.3 0.3 1" type="box" solimp="0.99 0.99 0.01" contype="1" size="0.001 0.1 0.05" name="drawer_wall3" conaffinity="1" pos="0.1 0 0.054" mass="1000" solref="0.01 1" material="light_wood_v2"/>
           <geom rgba="1 0.3 0.3 1" type="box" solimp="0.99 0.99 0.01" contype="1" size="0.001 0.1 0.05" name="drawer_wall4" conaffinity="1" pos="-0.101 0 0.054" mass="1000" solref="0.01 1" material="light_wood_v2"/>
           <!--front, parallel to door-->
-          <geom type="box" pos="0 -0.2 0.05" size="0.05 0.005 0.02" rgba="0 0 0 1" contype="1" conaffinity="1" name="handle" material="light_wood_v2"/>
+          <geom type="box" pos="0 -0.2 0.05" size="0.05 0.005 0.02" rgba="0 0 0 1" contype="1" conaffinity="1" name="handle1" material="light_wood_v2"/>
           <!--front-->
           <geom type="box" pos="0.045 -0.15 0.05" size="0.005 0.05 0.02" rgba="0 0 0 1" contype="1" conaffinity="1" material="light_wood_v2"/>
           <!--front-->
@@ -22,7 +22,7 @@
           <geom rgba="1 0.3 0.3 1" type="capsule" fromto="-0.098 -0.098 0.0075 -0.098 -0.098 0.06" contype="1" size="0.005" conaffinity="1"/> -->
           <joint type="slide" range="-0.2 0" axis="0 1 0" name="goal_slidey" pos="0 0 0" damping="1.0"/>
           <!-- <site name="handleStart" pos="0 -0.17 0.08" size="0.01" rgba="1 0 0 1"/> -->
-          <site name="handleStart" pos="0 -0.2 0.08" size="0.01" rgba="1 0 0 1"/>
+          <site name="handle1Start" pos="0 -0.2 0.08" size="0.01" rgba="1 0 0 0"/>
           <!-- <joint type="slide" range="0. 0.00000001" axis="1 0 0" name="goal_slidex" pos="0 0 0" damping="1.0"/>
           <joint type="slide" range="0. 0.00000001" axis="0 0 1" name="goal_slidez" pos="0 0 0" damping="1.0"/> -->
         </body>
@@ -58,7 +58,7 @@
           <geom rgba="1 0.3 0.3 1" type="capsule" fromto="-0.098 -0.098 0.0075 -0.098 -0.098 0.06" contype="1" size="0.005" conaffinity="1"/> -->
           <joint type="slide" range="-0.2 0" axis="0 1 0" name="goal2_slidey" pos="0 0 0" damping="1.0"/>
           <!-- <site name="handleStart" pos="0 -0.17 0.08" size="0.01" rgba="1 0 0 1"/> -->
-          <site name="handle2Start" pos="0 -0.2 0.08" size="0.01" rgba="1 0 0 1"/>
+          <site name="handle2Start" pos="0 -0.2 0.08" size="0.01" rgba="1 0 0 0"/>
           <!-- <joint type="slide" range="0. 0.00000001" axis="1 0 0" name="goal_slidex" pos="0 0 0" damping="1.0"/>
           <joint type="slide" range="0. 0.00000001" axis="0 0 1" name="goal_slidez" pos="0 0 0" damping="1.0"/> -->
         </body>
@@ -78,10 +78,10 @@
         </body>                       
         
         <site name="goal" pos="-0.17 0.7 0.05" size="0.02" 
-            rgba="0 0.8 0 1"/>
+            rgba="0 0.8 0 0"/>
         
         <site name="goal2" pos="0.17 0.7 0.05" size="0.02" 
-              rgba="0 0.8 0 1"/>
+              rgba="0 0.8 0 0"/>
 
 
     </worldbody>
