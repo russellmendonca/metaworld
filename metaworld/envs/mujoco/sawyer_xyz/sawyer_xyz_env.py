@@ -6,9 +6,15 @@ from gym.spaces import Box
 from gym.spaces import Discrete
 import mujoco_py
 import numpy as np
-
 from metaworld.envs.mujoco.mujoco_env import MujocoEnv, _assert_task_is_set
+from pyquaternion import Quaternion
 
+def zangle_to_quat(zangle):
+    """
+    :param zangle in rad
+    :return: quaternion
+    """
+    return (Quaternion(axis=[0,1,0], angle=np.pi) * Quaternion(axis=[0, 0, -1], angle= zangle)).elements
 
 class SawyerMocapBase(MujocoEnv, metaclass=abc.ABCMeta):
     """
@@ -82,6 +88,7 @@ class SawyerXYZEnv(SawyerMocapBase, metaclass=abc.ABCMeta):
             mocap_high=None,
             action_scale=1./100,
             action_rot_scale=1.,
+            front_facing_gripper = False
     ):
         super().__init__(model_name, frame_skip=frame_skip)
         self.random_init = True
@@ -120,6 +127,8 @@ class SawyerXYZEnv(SawyerMocapBase, metaclass=abc.ABCMeta):
         self.hand_init_pos = None  # OVERRIDE ME
         self._target_pos = None  # OVERRIDE ME
         self._random_reset_space = None  # OVERRIDE ME
+        self.front_facing_gripper = front_facing_gripper
+        self.reset_mocap_quat = np.array([1,0,1,0]) if self.front_facing_gripper else zangle_to_quat(np.pi/2)
 
     def _set_task_inner(self):
         # Doesn't absorb "extra" kwargs, to ensure nothing's missed.
@@ -149,7 +158,7 @@ class SawyerXYZEnv(SawyerMocapBase, metaclass=abc.ABCMeta):
             self.mocap_high,
         )
         self.data.set_mocap_pos('mocap', new_mocap_pos)
-        self.data.set_mocap_quat('mocap', np.array([1, 0, 1, 0]))
+        self.data.set_mocap_quat('mocap', self.reset_mocap_quat)
 
     def discretize_goal_space(self, goals):
         assert False
@@ -291,7 +300,7 @@ class SawyerXYZEnv(SawyerMocapBase, metaclass=abc.ABCMeta):
     def _reset_hand(self, steps=50):
         for _ in range(steps):
             self.data.set_mocap_pos('mocap', self.hand_init_pos)
-            self.data.set_mocap_quat('mocap', np.array([1, 0, 1, 0]))
+            self.data.set_mocap_quat('mocap', self.reset_mocap_quat)
             self.do_simulation([-1, 1], self.frame_skip)
 
     def _get_state_rand_vec(self):
