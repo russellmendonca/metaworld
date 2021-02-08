@@ -3,7 +3,7 @@
     <include file="shared_config.xml"></include>
     <worldbody>
         <include file="sawyer_xyz_base.xml"></include>
-        <body name="obj" pos="-0.12 0.7 0.04">
+        <body name="obj" pos="-0.12 0.65 0.04">
             <joint name="objjoint" type="free" limited='false' damping="0.0" armature="0" />
             <inertial pos="0 0 0" mass="0.01" diaginertia="100000 100000 100000"/>
             <geom name="objGeom" type="box" pos="0 0 0" solimp="0.99 0.99 0.01"

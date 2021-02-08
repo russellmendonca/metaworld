@@ -128,7 +128,7 @@ class SawyerXYZEnv(SawyerMocapBase, metaclass=abc.ABCMeta):
         self._target_pos = None  # OVERRIDE ME
         self._random_reset_space = None  # OVERRIDE ME
         self.front_facing_gripper = front_facing_gripper
-        self.reset_mocap_quat = np.array([1,0,1,0]) if self.front_facing_gripper else zangle_to_quat(np.pi/2)
+        self.reset_mocap_quat = zangle_to_quat(np.pi/2) if self.front_facing_gripper else np.array([1,0,1,0])
 
     def _set_task_inner(self):
         # Doesn't absorb "extra" kwargs, to ensure nothing's missed.
