@@ -1,12 +1,12 @@
-from gym.spaces import Box
 import numpy as np
+from gym.spaces import Box
 from metaworld.envs.asset_path_utils import full_v1_path_for
 from metaworld.envs.mujoco.sawyer_xyz.sawyer_xyz_env import SawyerXYZEnv, _assert_task_is_set
 
 
 class SawyerReachPushPickPlaceEnv(SawyerXYZEnv):
 
-    def __init__(self, task_type):
+    def __init__(self, random_init=False, task_type='pick_place'):
         liftThresh = 0.04
         goal_low=(-0.1, 0.8, 0.05)
         goal_high=(0.1, 0.9, 0.3)
@@ -15,7 +15,8 @@ class SawyerReachPushPickPlaceEnv(SawyerXYZEnv):
         obj_low = (-0.1, 0.6, 0.02)
         obj_high = (0.1, 0.7, 0.02)
 
-      
+        self.task_types = ['pick_place', 'reach', 'push']
+
         super().__init__(
             self.model_name,
             hand_low=hand_low,
@@ -23,37 +24,11 @@ class SawyerReachPushPickPlaceEnv(SawyerXYZEnv):
         )
 
         self.task_type = task_type
-        if self.task_type == 'pick_place':
-            self.goal = np.array([0.1, 0.8, 0.2])
-        elif self.task_type == 'reach':
-            self.goal = np.array([-0.1, 0.8, 0.2])
-        elif self.task_type == 'push':
-            self.goal = np.array([0.1, 0.8, 0.02])
- 
-
         self.init_config = {
             'obj_init_angle': .3,
             'obj_init_pos': np.array([0, 0.6, 0.02]),
             'hand_init_pos': np.array([0, .6, .2]),
         }
-
-        self.obj_init_angle = self.init_config['obj_init_angle']
-        self.obj_init_pos = self.init_config['obj_init_pos']
-        self.hand_init_pos = self.init_config['hand_init_pos']
-
-        self.liftThresh = liftThresh
-
-        self._random_reset_space = Box(
-            np.hstack((obj_low, goal_low)),
-            np.hstack((obj_high, goal_high)),
-        )
-        self.goal_space = Box(np.array(goal_low), np.array(goal_high))
-
-        self.num_resets = 0
-
-    def _set_task_inner(self, *, task_type, **kwargs):
-        super()._set_task_inner(**kwargs)
-        self.task_type = task_type
 
         # we only do one task from [pick_place, reach, push]
         # per instance of SawyerReachPushPickPlaceEnv.
@@ -67,46 +42,88 @@ class SawyerReachPushPickPlaceEnv(SawyerXYZEnv):
         else:
             raise NotImplementedError
 
+        self.obj_init_angle = self.init_config['obj_init_angle']
+        self.obj_init_pos = self.init_config['obj_init_pos']
+        self.hand_init_pos = self.init_config['hand_init_pos']
+
+        self.random_init = random_init
+        self.liftThresh = liftThresh
+        self.max_path_length = 150
+
+        self.action_space = Box(
+            np.array([-1, -1, -1, -1]),
+            np.array([1, 1, 1, 1]),
+        )
+
+        self.obj_and_goal_space = Box(
+            np.hstack((obj_low, goal_low)),
+            np.hstack((obj_high, goal_high)),
+        )
+        self.goal_space = Box(np.array(goal_low), np.array(goal_high))
+
+        self.num_resets = 0
+        self.reset()
+
     @property
     def model_name(self):
         return full_v1_path_for('sawyer_xyz/sawyer_reach_push_pick_and_place.xml')
 
     @_assert_task_is_set
     def step(self, action):
-        ob = super().step(action)
-        reward, _, reachDist, _, pushDist, pickRew, _, placingDist = self.compute_reward(action, ob)
+        self.set_xyz_action(action[:3])
+        self.do_simulation([action[-1], -action[-1]])
+        # The marker seems to get reset every time you do a simulation
+        self._set_goal_marker(self._state_goal)
+        ob = self._get_obs()
+        obs_dict = self._get_obs_dict()
+        reward, _, reachDist, _, pushDist, pickRew, _, placingDist = self.compute_reward(action, obs_dict)
         self.curr_path_length +=1
-        
-        if self.task_type == 'reach':
-            goal_dist = reachDist
-        elif self.task_type == 'push':
-            goal_dist = pushDist
-        elif self.task_type == 'pick_place':
-            goal_dist = placingDist
+
+        goal_dist = placingDist if self.task_type == 'pick_place' else pushDist
 
         if self.task_type == 'reach':
             success = float(reachDist <= 0.05)
         else:
             success = float(goal_dist <= 0.07)
 
-        info = {
-            'reachDist': reachDist,
-            'pickRew': pickRew,
-            'epRew': reward,
-            'goalDist': goal_dist,
-            'success': success
-        }
+        info = {'reachDist': reachDist, 'pickRew':pickRew, 'epRew' : reward, 'goalDist': goal_dist, 'success': success}
+        info['goal'] = self.goal
+
         return ob, reward, False, info
 
-    @property
-    def _target_site_config(self):
-        far_away = np.array([10., 10., 10.])
-        return [
-            ('goal_' + self.task_type, self._target_pos )
-        ]
+    def _get_obs(self):
+        hand = self.get_endeff_pos()
+        objPos =  self.data.get_geom_xpos('objGeom')
+        flat_obs = np.concatenate((hand, objPos))
 
-    def _get_pos_objects(self):
-        return self.data.get_geom_xpos('objGeom')
+        return np.concatenate([flat_obs,])
+
+    def _get_obs_dict(self):
+        hand = self.get_endeff_pos()
+        objPos =  self.data.get_geom_xpos('objGeom')
+        flat_obs = np.concatenate((hand, objPos))
+        return dict(
+            state_observation=flat_obs,
+            state_desired_goal=self._state_goal,
+            state_achieved_goal=objPos,
+        )
+
+    def _set_goal_marker(self, goal):
+        self.data.site_xpos[self.model.site_name2id('goal_{}'.format(self.task_type))] = (
+            goal[:3]
+        )
+        for task_type in self.task_types:
+            if task_type != self.task_type:
+                self.data.site_xpos[self.model.site_name2id('goal_{}'.format(task_type))] = (
+                    np.array([10.0, 10.0, 10.0])
+                )
+
+    def _set_obj_xyz(self, pos):
+        qpos = self.data.qpos.flat.copy()
+        qvel = self.data.qvel.flat.copy()
+        qpos[9:12] = pos.copy()
+        qvel[9:15] = 0
+        self.set_state(qpos, qvel)
 
     def adjust_initObjPos(self, orig_init_pos):
         # This is to account for meshes for the geom and object are not aligned
@@ -119,29 +136,38 @@ class SawyerReachPushPickPlaceEnv(SawyerXYZEnv):
 
     def reset_model(self):
         self._reset_hand()
-        self._target_pos = self.goal.copy()
+        self._state_goal = self.goal.copy()
         self.obj_init_pos = self.adjust_initObjPos(self.init_config['obj_init_pos'])
         self.obj_init_angle = self.init_config['obj_init_angle']
         self.objHeight = self.data.get_geom_xpos('objGeom')[2]
         self.heightTarget = self.objHeight + self.liftThresh
 
         if self.random_init:
-            goal_pos = self._get_state_rand_vec()
-            self._target_pos = goal_pos[3:]
-            while np.linalg.norm(goal_pos[:2] - self._target_pos[:2]) < 0.15:
-                goal_pos = self._get_state_rand_vec()
-                self._target_pos = goal_pos[3:]
+            goal_pos = np.random.uniform(
+                self.obj_and_goal_space.low,
+                self.obj_and_goal_space.high,
+                size=(self.obj_and_goal_space.low.size),
+            )
+            self._state_goal = goal_pos[3:]
+            while np.linalg.norm(goal_pos[:2] - self._state_goal[:2]) < 0.15:
+                goal_pos = np.random.uniform(
+                    self.obj_and_goal_space.low,
+                    self.obj_and_goal_space.high,
+                    size=(self.obj_and_goal_space.low.size),
+                )
+                self._state_goal = goal_pos[3:]
             if self.task_type == 'push':
-                self._target_pos = np.concatenate((goal_pos[-3:-1], [self.obj_init_pos[-1]]))
+                self._state_goal = np.concatenate((goal_pos[-3:-1], [self.obj_init_pos[-1]]))
                 self.obj_init_pos = np.concatenate((goal_pos[:2], [self.obj_init_pos[-1]]))
             else:
-                self._target_pos = goal_pos[-3:]
+                self._state_goal = goal_pos[-3:]
                 self.obj_init_pos = goal_pos[:3]
 
+        self._set_goal_marker(self._state_goal)
         self._set_obj_xyz(self.obj_init_pos)
-        self.maxReachDist = np.linalg.norm(self.init_fingerCOM - np.array(self._target_pos))
-        self.maxPushDist = np.linalg.norm(self.obj_init_pos[:2] - np.array(self._target_pos)[:2])
-        self.maxPlacingDist = np.linalg.norm(np.array([self.obj_init_pos[0], self.obj_init_pos[1], self.heightTarget]) - np.array(self._target_pos)) + self.heightTarget
+        self.maxReachDist = np.linalg.norm(self.init_fingerCOM - np.array(self._state_goal))
+        self.maxPushDist = np.linalg.norm(self.obj_init_pos[:2] - np.array(self._state_goal)[:2])
+        self.maxPlacingDist = np.linalg.norm(np.array([self.obj_init_pos[0], self.obj_init_pos[1], self.heightTarget]) - np.array(self._state_goal)) + self.heightTarget
         self.target_rewards = [1000*self.maxPlacingDist + 1000*2, 1000*self.maxReachDist + 1000*2, 1000*self.maxPushDist + 1000*2]
 
         if self.task_type == 'reach':
@@ -159,20 +185,24 @@ class SawyerReachPushPickPlaceEnv(SawyerXYZEnv):
         return self._get_obs()
 
     def _reset_hand(self):
-        super()._reset_hand(10)
-        rightFinger, leftFinger = self._get_site_pos('rightEndEffector'), self._get_site_pos('leftEndEffector')
+        for _ in range(10):
+            self.data.set_mocap_pos('mocap', self.hand_init_pos)
+            self.data.set_mocap_quat('mocap', np.array([1, 0, 1, 0]))
+            self.do_simulation([-1,1], self.frame_skip)
+        rightFinger, leftFinger = self.get_site_pos('rightEndEffector'), self.get_site_pos('leftEndEffector')
         self.init_fingerCOM  =  (rightFinger + leftFinger)/2
         self.pickCompleted = False
 
     def compute_reward(self, actions, obs):
+        obs = obs['state_observation']
 
         objPos = obs[3:6]
 
-        rightFinger, leftFinger = self._get_site_pos('rightEndEffector'), self._get_site_pos('leftEndEffector')
+        rightFinger, leftFinger = self.get_site_pos('rightEndEffector'), self.get_site_pos('leftEndEffector')
         fingerCOM  =  (rightFinger + leftFinger)/2
 
         heightTarget = self.heightTarget
-        goal = self._target_pos
+        goal = self._state_goal
 
         def compute_reward_reach(actions, obs):
             del actions
@@ -194,7 +224,7 @@ class SawyerReachPushPickPlaceEnv(SawyerXYZEnv):
             del actions
             del obs
 
-            assert np.all(goal == self._get_site_pos('goal_push'))
+            assert np.all(goal == self.get_site_pos('goal_push'))
             reachDist = np.linalg.norm(fingerCOM - objPos)
             pushDist = np.linalg.norm(objPos[:2] - goal[:2])
             reachRew = -reachDist
@@ -211,7 +241,7 @@ class SawyerReachPushPickPlaceEnv(SawyerXYZEnv):
 
             reachDist = np.linalg.norm(objPos - fingerCOM)
             placingDist = np.linalg.norm(objPos - goal)
-            assert np.all(goal == self._get_site_pos('goal_pick_place'))
+            assert np.all(goal == self.get_site_pos('goal_pick_place'))
 
             def reachReward():
                 reachRew = -reachDist

@@ -21,7 +21,7 @@ class SawyerBlockPickingEnv(SawyerXYZEnv):
         )
         self.init_config = {
             'obj_init_angle': 0.3,
-            'obj_init_pos': np.array([0, 0.7, 0.02]),
+            'obj_init_pos': np.array([0, 0.7, 0.045]),
             'hand_init_pos': np.array((0, 0.6, 0.2)),
         }
         self.goal = np.array([0.12, 0.7, 0.02])
@@ -91,7 +91,7 @@ class SawyerBlockPickingEnv(SawyerXYZEnv):
     def reset_model(self):
         self._reset_hand()
         self._target_pos = self.goal.copy()
-        # self.obj_init_pos = self.adjust_initObjPos(self.init_config['obj_init_pos'])
+        #self.obj_init_pos = self.adjust_initObjPos(self.init_config['obj_init_pos'])
         self.obj_init_angle = self.init_config['obj_init_angle']
         self.objHeight = self.data.get_geom_xpos('objGeom')[2]
         self.heightTarget = self.objHeight + self.liftThresh
