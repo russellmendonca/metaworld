@@ -1,6 +1,7 @@
 from metaworld.envs.mujoco.sawyer_xyz.v1.sawyer_assembly_peg import SawyerNutAssemblyEnv
 from metaworld.envs.mujoco.sawyer_xyz.v1.sawyer_basketball import SawyerBasketballEnv
 from metaworld.envs.mujoco.sawyer_xyz.v1.sawyer_bin_picking import SawyerBinPickingEnv
+from metaworld.envs.mujoco.sawyer_xyz.v1.sawyer_two_puck_bin import SawyerTwoPuckBinEnv
 from metaworld.envs.mujoco.sawyer_xyz.v1.sawyer_block_picking import SawyerBlockPickingEnv
 from metaworld.envs.mujoco.sawyer_xyz.v1.sawyer_box_close import SawyerBoxCloseEnv
 from metaworld.envs.mujoco.sawyer_xyz.v1.sawyer_button_press import SawyerButtonPressEnv
