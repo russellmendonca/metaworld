@@ -5,7 +5,7 @@ from metaworld.envs.asset_path_utils import full_v1_path_for
 from metaworld.envs.mujoco.sawyer_xyz.sawyer_xyz_env import SawyerXYZEnv, _assert_task_is_set
 
 
-class SawyerTwoPuckBinEnv(SawyerXYZEnv):
+class SawyerTwoBlockBinEnv(SawyerXYZEnv):
     def __init__(self, front_facing_gripper=True):
 
         liftThresh = 0.1
@@ -24,10 +24,10 @@ class SawyerTwoPuckBinEnv(SawyerXYZEnv):
 
         self.init_config = {
             'obj_init_angle': 0.3,
-            'obj_init_pos': np.array([-0.16, 0.6, 0.04]),
+            'obj_init_pos': np.array([-0.1, 0.7, 0.04, 0.1, 0.7, 0.04]),
             'hand_init_pos': np.array((0, 0.6, 0.2)),
         }
-        self.goal = np.array([0.12, 0.7, 0.02])
+        self.goal = np.array([-0.1, 0.7, 0.04, 0.1, 0.7, 0.04])
         self.obj_init_pos = self.init_config['obj_init_pos']
         self.obj_init_angle = self.init_config['obj_init_angle']
         self.hand_init_pos = self.init_config['hand_init_pos']
@@ -54,9 +54,9 @@ class SawyerTwoPuckBinEnv(SawyerXYZEnv):
     @property
     def model_name(self):
         if self.front_facing_gripper:
-            return full_v1_path_for('sawyer_xyz/sawyer_two_puck_bin_ffg.xml')
+            return full_v1_path_for('sawyer_xyz/sawyer_two_block_bin_ffg.xml')
         else:
-            return full_v1_path_for('sawyer_xyz/sawyer_two_puck_bin.xml')
+            return full_v1_path_for('sawyer_xyz/sawyer_two_block_bin.xml')
 
     @_assert_task_is_set
     def step(self, action):
@@ -79,7 +79,7 @@ class SawyerTwoPuckBinEnv(SawyerXYZEnv):
         return []
 
     def _get_pos_objects(self):
-        return self.data.get_geom_xpos('objGeom')
+        return np.concatenate([self.data.get_geom_xpos('objGeom'), self.data.get_geom_xpos('obj2Geom')])
 
     def _set_goal_xyz(self, goal):
         del goal  # rjulian: ??? What?
@@ -87,19 +87,19 @@ class SawyerTwoPuckBinEnv(SawyerXYZEnv):
         qvel = self.data.qvel.flat.copy()
         self.set_state(qpos, qvel)
 
-    def adjust_initObjPos(self, orig_init_pos):
-        # This is to account for meshes for the geom and object are not aligned
-        # If this is not done, the object could be initialized in an extreme position
-        diff = self.get_body_com('obj')[:2] - self.data.get_geom_xpos('objGeom')[:2]
-        adjustedPos = orig_init_pos[:2] + diff
 
-        # The convention we follow is that body_com[2] is always 0, and geom_pos[2] is the object height
-        return [adjustedPos[0], adjustedPos[1],self.data.get_geom_xpos('objGeom')[-1]]
+    def _set_obj_xyz(self, pos):
+        qpos = self.data.qpos.flat.copy()
+        qvel = self.data.qvel.flat.copy()
+        qpos[9:12] = pos[:3].copy()
+        qvel[9:21] = 0
+        qpos[16:19] = pos[3:].copy()
+
+        self.set_state(qpos, qvel)
 
     def reset_model(self):
         self._reset_hand()
         self._target_pos = self.goal.copy()
-        self.obj_init_pos = self.adjust_initObjPos(self.init_config['obj_init_pos'])
         self.obj_init_angle = self.init_config['obj_init_angle']
         self.objHeight = self.data.get_geom_xpos('objGeom')[2]
         self.heightTarget = self.objHeight + self.liftThresh
@@ -108,7 +108,7 @@ class SawyerTwoPuckBinEnv(SawyerXYZEnv):
             self.obj_init_pos = self._get_state_rand_vec()
             self.obj_init_pos = np.concatenate((self.obj_init_pos, [self.objHeight]))
 
-        self._set_goal_xyz(self._target_pos)
+        #self._set_goal_xyz(self._target_pos)
         self._set_obj_xyz(self.obj_init_pos)
         self._target_pos = self.get_body_com("bin_goal")
         self.maxPlacingDist = np.linalg.norm(np.array([self.obj_init_pos[0], self.obj_init_pos[1]]) - np.array(self._target_pos)[:-1]) + self.heightTarget
