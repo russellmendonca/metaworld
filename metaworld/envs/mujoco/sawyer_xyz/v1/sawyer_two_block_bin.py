@@ -27,7 +27,9 @@ class SawyerTwoBlockBinEnv(SawyerXYZEnv):
             'obj_init_pos': np.array([-0.1, 0.7, 0.04, 0.1, 0.7, 0.04]),
             'hand_init_pos': np.array((0, 0.6, 0.2)),
         }
-        self.goal = np.array([-0.1, 0.7, 0.04, 0.1, 0.7, 0.04])
+        self.goals = [np.array([-0.1, 0.7, 0.04, 0.1, 0.7, 0.04])]
+        self.goal_idx = 0
+
         self.obj_init_pos = self.init_config['obj_init_pos']
         self.obj_init_angle = self.init_config['obj_init_angle']
         self.hand_init_pos = self.init_config['hand_init_pos']
@@ -61,15 +63,14 @@ class SawyerTwoBlockBinEnv(SawyerXYZEnv):
     @_assert_task_is_set
     def step(self, action):
         ob = super().step(action)
-        reward, _, reachDist, pickRew, _, placingDist = self.compute_reward(action, ob)
+        reward, success, hand_distance, obj1_distance, obj2_distance = self.compute_reward(ob, self.goal_idx)
         self.curr_path_length += 1
 
         info = {
-            'reachDist': reachDist,
-            'pickRew': pickRew,
-            'epRew': reward,
-            'goalDist': placingDist,
-            'success': float(placingDist <= 0.08)
+            'metric_success': success,
+            'metric_hand_distance': hand_distance,
+            'metric_obj1_distance': obj1_distance,
+            'metric_obj2_distance': obj2_distance
         }
 
         return ob, reward, False, info
@@ -81,13 +82,6 @@ class SawyerTwoBlockBinEnv(SawyerXYZEnv):
     def _get_pos_objects(self):
         return np.concatenate([self.data.get_geom_xpos('objGeom'), self.data.get_geom_xpos('obj2Geom')])
 
-    def _set_goal_xyz(self, goal):
-        del goal  # rjulian: ??? What?
-        qpos = self.data.qpos.flat.copy()
-        qvel = self.data.qvel.flat.copy()
-        self.set_state(qpos, qvel)
-
-
     def _set_obj_xyz(self, pos):
         qpos = self.data.qpos.flat.copy()
         qvel = self.data.qvel.flat.copy()
@@ -98,8 +92,8 @@ class SawyerTwoBlockBinEnv(SawyerXYZEnv):
         self.set_state(qpos, qvel)
 
     def reset_model(self):
-        self._reset_hand()
-        self._target_pos = self.goal.copy()
+        super()._reset_hand(10)
+        
         self.obj_init_angle = self.init_config['obj_init_angle']
         self.objHeight = self.data.get_geom_xpos('objGeom')[2]
         self.heightTarget = self.objHeight + self.liftThresh
@@ -108,111 +102,37 @@ class SawyerTwoBlockBinEnv(SawyerXYZEnv):
             self.obj_init_pos = self._get_state_rand_vec()
             self.obj_init_pos = np.concatenate((self.obj_init_pos, [self.objHeight]))
 
-        #self._set_goal_xyz(self._target_pos)
         self._set_obj_xyz(self.obj_init_pos)
-        self._target_pos = self.get_body_com("bin_goal")
-        self.maxPlacingDist = np.linalg.norm(np.array([self.obj_init_pos[0], self.obj_init_pos[1]]) - np.array(self._target_pos)[:-1]) + self.heightTarget
+        #self._target_pos = self.get_body_com("bin_goal")
+        #self.maxPlacingDist = np.linalg.norm(np.array([self.obj_init_pos[0], self.obj_init_pos[1]]) - np.array(self._target_pos)[:-1]) + self.heightTarget
 
         return self._get_obs()
 
-    def _reset_hand(self):
-        super()._reset_hand(10)
-        rightFinger, leftFinger = self._get_site_pos('rightEndEffector'), self._get_site_pos('leftEndEffector')
-        self.init_fingerCOM  =  (rightFinger + leftFinger)/2
-        self.pickCompleted = False
-        self.placeCompleted = False
+    def add_pertask_success(self, obs, goal_idx = None):
+        goal_idxs = [goal_idx] if goal_idx is not None else range(len(self.goals))
+        for goal_idx in goal_idxs:
+            reward, success, hand_distance, obj1_distance, obj2_distance = self.compute_reward(obs['state'], goal_idx)
+      
+            obs['metric_success/goal_'+str(goal_idx)]= success
+            obs['metric_hand_distance/goal_'+str(goal_idx)]= hand_distance
+            obs['metric_obj1_distance/goal_'+str(goal_idx)]= obj1_distance
+            obs['metric_obj2_distance/goal_'+str(goal_idx)]= obj2_distance
+        return obs
 
-    def compute_reward(self, actions, obs):
-        objPos = obs[3:6]
+    def compute_reward(self, obs, goal_idx):
 
-        rightFinger, leftFinger = self._get_site_pos('rightEndEffector'), self._get_site_pos('leftEndEffector')
-        fingerCOM  =  (rightFinger + leftFinger)/2
+        goal = self.goals[self.goal_idx]
+        hand_distance = np.linalg.norm(obs[:3] -  goal[:3])
+        obj1_distance = np.linalg.norm(obs[3:6] - goal[3:6])
+        obj2_distance = np.linalg.norm(obs[6:9] - goal[6:9])
+        
+        if self.goal_idx in [0,1]:
+            #reaching
+            reward = -hand_distance
+            success = float(hand_distance < 0.05)
+        else:
+            #pushing, pickplace, stacking
+            reward = -obj1_distance -obj2_distance
+            success = float((obj1_distance < 0.07) and (obj2_distance < 0.07))
 
-        heightTarget = self.heightTarget
-        placingGoal = self._target_pos
-
-        reachDist = np.linalg.norm(objPos - fingerCOM)
-
-        placingDist = np.linalg.norm(objPos[:2] - placingGoal[:-1])
-
-
-        def reachReward():
-            reachRew = -reachDist
-            reachDistxy = np.linalg.norm(objPos[:-1] - fingerCOM[:-1])
-            zRew = np.linalg.norm(fingerCOM[-1] - self.init_fingerCOM[-1])
-            if reachDistxy < 0.06:
-                reachRew = -reachDist
-            else:
-                reachRew =  -reachDistxy - zRew
-
-            # incentive to close fingers when reachDist is small
-            if reachDist < 0.05:
-                reachRew = -reachDist + max(actions[-1],0)/50
-            return reachRew , reachDist
-
-        def pickCompletionCriteria():
-            tolerance = 0.01
-            if objPos[2] >= (heightTarget- tolerance):
-                return True
-            else:
-                return False
-
-        if pickCompletionCriteria():
-            self.pickCompleted = True
-
-
-        def objDropped():
-            return (objPos[2] < (self.objHeight + 0.005)) and (placingDist >0.02) and (reachDist > 0.02)
-            # Object on the ground, far away from the goal, and from the gripper
-            # Can tweak the margin limits
-
-        def placeCompletionCriteria():
-            if abs(objPos[0] - placingGoal[0]) < 0.05 and \
-                abs(objPos[1] - placingGoal[1]) < 0.05 and \
-                objPos[2] < self.objHeight + 0.05:
-                return True
-            else:
-                return False
-
-        if placeCompletionCriteria():
-            self.placeCompleted = True
-
-        def orig_pickReward():
-            hScale = 100
-            if self.placeCompleted or (self.pickCompleted and not(objDropped())):
-                return hScale*heightTarget
-            elif (reachDist < 0.1) and (objPos[2]> (self.objHeight + 0.005)) :
-                return hScale* min(heightTarget, objPos[2])
-            else:
-                return 0
-
-        def placeReward():
-            c1 = 1000
-            c2 = 0.01
-            c3 = 0.001
-            placeRew = 1000*(self.maxPlacingDist - placingDist) + c1*(np.exp(-(placingDist**2)/c2) + np.exp(-(placingDist**2)/c3))
-            placeRew = max(placeRew,0)
-            cond = self.pickCompleted and (reachDist < 0.1) and not(objDropped())
-
-            if self.placeCompleted:
-                return [-200*actions[-1] + placeRew, placingDist]
-            elif cond:
-                if abs(objPos[0] - placingGoal[0]) < 0.05 and \
-                    abs(objPos[1] - placingGoal[1]) < 0.05:
-                    return [-200*actions[-1] + placeRew, placingDist]
-                else:
-                    return [placeRew, placingDist]
-            else:
-                return [0 , placingDist]
-
-
-        reachRew, reachDist = reachReward()
-        pickRew = orig_pickReward()
-        placeRew , placingDist = placeReward()
-
-        if self.placeCompleted:
-            reachRew = 0
-            reachDist = 0
-        reward = reachRew + pickRew + placeRew
-
-        return [reward, reachRew, reachDist, pickRew, placeRew, placingDist]
+        return [reward, success, hand_distance, obj1_distance, obj2_distance]

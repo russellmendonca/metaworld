@@ -238,9 +238,9 @@ class SawyerXYZEnv(SawyerMocapBase, metaclass=abc.ABCMeta):
         Returns:
             np.ndarray: Flat array (3 elements) representing the goal position
         """
-        assert isinstance(self._target_pos, np.ndarray)
-        assert self._target_pos.ndim == 1
-        return self._target_pos
+        #assert isinstance(self._target_pos, np.ndarray)
+        #assert self._target_pos.ndim == 1
+        return self.goals[self.goal_idx]
 
     def _get_obs(self):
         """Combines positions of the end effector, object(s) and goal into a
@@ -259,8 +259,8 @@ class SawyerXYZEnv(SawyerMocapBase, metaclass=abc.ABCMeta):
         pos_goal = self._get_pos_goal()
         if self._partially_observable:
             pos_goal = np.zeros_like(pos_goal)
-
-        return np.hstack((pos_hand, pos_obj_padded, pos_goal))
+    
+        return np.hstack((pos_hand, pos_obj_padded))
 
     def _get_obs_dict(self):
         obs = self._get_obs()
