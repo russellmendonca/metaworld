@@ -67,6 +67,7 @@ class SawyerTwoBlockBinEnv(SawyerXYZEnv):
         self.curr_path_length += 1
 
         info = {
+            'metric_reward': reward,
             'metric_success': success,
             'metric_hand_distance': hand_distance,
             'metric_obj1_distance': obj1_distance,
@@ -112,7 +113,8 @@ class SawyerTwoBlockBinEnv(SawyerXYZEnv):
         goal_idxs = [goal_idx] if goal_idx is not None else range(len(self.goals))
         for goal_idx in goal_idxs:
             reward, success, hand_distance, obj1_distance, obj2_distance = self.compute_reward(obs['state'], goal_idx)
-      
+            
+            obs['metric_reward/goal_'+str(goal_idx)]= reward
             obs['metric_success/goal_'+str(goal_idx)]= success
             obs['metric_hand_distance/goal_'+str(goal_idx)]= hand_distance
             obs['metric_obj1_distance/goal_'+str(goal_idx)]= obj1_distance
