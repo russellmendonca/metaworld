@@ -94,7 +94,7 @@ class SawyerTwoBlockBinEnv(SawyerXYZEnv):
 
     def reset_model(self):
         super()._reset_hand(10)
-        
+
         self.obj_init_angle = self.init_config['obj_init_angle']
         self.objHeight = self.data.get_geom_xpos('objGeom')[2]
         self.heightTarget = self.objHeight + self.liftThresh
@@ -113,7 +113,7 @@ class SawyerTwoBlockBinEnv(SawyerXYZEnv):
         goal_idxs = [goal_idx] if goal_idx is not None else range(len(self.goals))
         for goal_idx in goal_idxs:
             reward, success, hand_distance, obj1_distance, obj2_distance = self.compute_reward(obs['state'], goal_idx)
-            
+
             obs['metric_reward/goal_'+str(goal_idx)]= reward
             obs['metric_success/goal_'+str(goal_idx)]= success
             obs['metric_hand_distance/goal_'+str(goal_idx)]= hand_distance
@@ -127,7 +127,7 @@ class SawyerTwoBlockBinEnv(SawyerXYZEnv):
         hand_distance = np.linalg.norm(obs[:3] -  goal[:3])
         obj1_distance = np.linalg.norm(obs[3:6] - goal[3:6])
         obj2_distance = np.linalg.norm(obs[6:9] - goal[6:9])
-        
+
         if self.goal_idx in [0,1]:
             #reaching
             reward = -hand_distance
