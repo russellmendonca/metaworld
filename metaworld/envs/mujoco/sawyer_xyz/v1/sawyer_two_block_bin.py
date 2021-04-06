@@ -123,7 +123,8 @@ class SawyerTwoBlockBinEnv(SawyerXYZEnv):
 
     def compute_reward(self, obs, goal_idx):
 
-        goal = self.goals[self.goal_idx]
+        if goal_idx is None: goal_idx = self.goal_idx
+        goal = self.goals[goal_idx]
         hand_distance = np.linalg.norm(obs[:3] -  goal[:3])
         obj1_distance = np.linalg.norm(obs[3:6] - goal[3:6])
         obj2_distance = np.linalg.norm(obs[6:9] - goal[6:9])
