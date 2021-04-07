@@ -149,7 +149,7 @@ class SawyerReachPushPickPlaceEnv(SawyerXYZEnv):
 
     def compute_reward(self, obs, goal_idx):
 
-        goal = self.goals[self.goal_idx]
+        goal = self.goals[goal_idx]
         hand_distance = np.linalg.norm(obs[:3] -  goal[:3])
         obj_distance =  np.linalg.norm(obs[3:6] - goal[:3])
 
