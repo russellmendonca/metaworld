@@ -6,7 +6,7 @@ from metaworld.envs.mujoco.sawyer_xyz.sawyer_xyz_env import SawyerXYZEnv, _asser
 
 
 class SawyerTwoBlockBinEnv(SawyerXYZEnv):
-    def __init__(self, front_facing_gripper=True):
+    def __init__(self, front_facing_gripper=True, full_state_reward=False):
 
         liftThresh = 0.1
         hand_low = (-0.5, 0.40, 0.07)
@@ -15,6 +15,7 @@ class SawyerTwoBlockBinEnv(SawyerXYZEnv):
         obj_high = (0.5, 1, 0.5)
 
         self.front_facing_gripper = front_facing_gripper
+        self.full_state_reward = full_state_reward
         super().__init__(
             self.model_name,
             hand_low=hand_low,
@@ -138,5 +139,8 @@ class SawyerTwoBlockBinEnv(SawyerXYZEnv):
             #pushing, pickplace, stacking
             reward = -obj1_distance -obj2_distance
             success = float((obj1_distance < 0.07) and (obj2_distance < 0.07))
+
+        if self.full_state_reward:
+            reward = - obj1_distance - obj2_distance - hand_distance
 
         return [reward, success, hand_distance, obj1_distance, obj2_distance]

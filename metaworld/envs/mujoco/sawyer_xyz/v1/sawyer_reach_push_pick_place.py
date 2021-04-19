@@ -6,7 +6,7 @@ from metaworld.envs.mujoco.sawyer_xyz.sawyer_xyz_env import SawyerXYZEnv, _asser
 
 class SawyerReachPushPickPlaceEnv(SawyerXYZEnv):
 
-    def __init__(self, task_type):
+    def __init__(self, task_type, full_state_reward=False):
         liftThresh = 0.04
         goal_low=(-0.1, 0.8, 0.05)
         goal_high=(0.1, 0.9, 0.3)
@@ -16,6 +16,7 @@ class SawyerReachPushPickPlaceEnv(SawyerXYZEnv):
         obj_high = (0.1, 0.7, 0.02)
 
 
+        self.full_state_reward = full_state_reward
         super().__init__(
             self.model_name,
             hand_low=hand_low,
@@ -152,7 +153,10 @@ class SawyerReachPushPickPlaceEnv(SawyerXYZEnv):
         if goal_idx is None:
           goal_idx = self.goal_idx
         goal = self.goals[goal_idx]
-        hand_distance = np.linalg.norm(obs[:3] -  goal[:3])
+        if self.full_state_reward:
+            hand_distance = np.linalg.norm(obs[:3] - self.hand_init_pos)
+        else:
+            hand_distance = np.linalg.norm(obs[:3] -  goal[:3])
         obj_distance =  np.linalg.norm(obs[3:6] - goal[:3])
 
         if self.task_type == 'reach':
