@@ -134,11 +134,11 @@ class SawyerTwoBlockBinEnv(SawyerXYZEnv):
         if self.goal_idx in [0,1]:
             #reaching
             reward = -hand_distance
-            success = float(hand_distance < 0.05)
+            success = float(hand_distance < 0.1)
         else:
             #pushing, pickplace, stacking
             reward = -obj1_distance -obj2_distance
-            success = float((obj1_distance < 0.07) and (obj2_distance < 0.07))
+            success = float((obj1_distance < 0.1) and (obj2_distance < 0.1))
 
         if self.full_state_reward:
             reward = - obj1_distance - obj2_distance - hand_distance
