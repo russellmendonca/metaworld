@@ -97,7 +97,8 @@ class SawyerTwoBlockBinEnv(SawyerXYZEnv):
         super()._reset_hand(10)
 
         self.obj_init_angle = self.init_config['obj_init_angle']
-        self.objHeight = self.data.get_geom_xpos('objGeom')[2]
+        self.objHeight = 0.02
+        #self.objHeight = self.data.get_geom_xpos('objGeom')[2]
         self.heightTarget = self.objHeight + self.liftThresh
 
         if self.random_init:

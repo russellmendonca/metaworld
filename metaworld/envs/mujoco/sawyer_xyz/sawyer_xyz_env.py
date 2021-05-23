@@ -41,8 +41,12 @@ class SawyerMocapBase(MujocoEnv, metaclass=abc.ABCMeta):
         joint_state, mocap_state = state
         self.sim.set_state(joint_state)
         mocap_pos, mocap_quat = mocap_state
-        self.data.set_mocap_pos('mocap', mocap_pos)
-        self.data.set_mocap_quat('mocap', mocap_quat)
+        if self.use_dm_backend:
+            self.sim.data.mocap_pos[:] = mocap_pos
+            self.sim.data.mocap_quat[:] = mocap_quat
+        else:
+            self.data.set_mocap_pos('mocap', mocap_pos)
+            self.data.set_mocap_quat('mocap', mocap_quat)
         self.sim.forward()
 
     def __getstate__(self):
@@ -157,8 +161,12 @@ class SawyerXYZEnv(SawyerMocapBase, metaclass=abc.ABCMeta):
             self.mocap_low,
             self.mocap_high,
         )
-        self.data.set_mocap_pos('mocap', new_mocap_pos)
-        self.data.set_mocap_quat('mocap', self.reset_mocap_quat)
+        if self.use_dm_backend:
+            self.sim.data.mocap_pos[:] = new_mocap_pos
+            self.sim.data.mocap_quat[:] = self.reset_mocap_quat
+        else:
+            self.data.set_mocap_pos('mocap', new_mocap_pos)
+            self.data.set_mocap_quat('mocap', self.reset_mocap_quat)
 
     def discretize_goal_space(self, goals):
         assert False
@@ -249,18 +257,21 @@ class SawyerXYZEnv(SawyerMocapBase, metaclass=abc.ABCMeta):
         Returns:
             np.ndarray: The flat observation array (12 elements)
         """
-        pos_hand = self.get_endeff_pos()
+        if self.use_dm_backend:
+            return np.zeros(10)
+        else:
+            pos_hand = self.get_endeff_pos()
 
-        pos_obj_padded = np.zeros(self._pos_obj_max_len)
-        pos_obj = self._get_pos_objects()
-        assert len(pos_obj) in self._pos_obj_possible_lens
-        pos_obj_padded[:len(pos_obj)] = pos_obj
+            pos_obj_padded = np.zeros(self._pos_obj_max_len)
+            pos_obj = self._get_pos_objects()
+            assert len(pos_obj) in self._pos_obj_possible_lens
+            pos_obj_padded[:len(pos_obj)] = pos_obj
 
-        pos_goal = self._get_pos_goal()
-        if self._partially_observable:
-            pos_goal = np.zeros_like(pos_goal)
-    
-        return np.hstack((pos_hand, pos_obj_padded))
+            pos_goal = self._get_pos_goal()
+            if self._partially_observable:
+                pos_goal = np.zeros_like(pos_goal)
+        
+            return np.hstack((pos_hand, pos_obj_padded))
 
     def _get_obs_dict(self):
         obs = self._get_obs()
@@ -299,8 +310,13 @@ class SawyerXYZEnv(SawyerMocapBase, metaclass=abc.ABCMeta):
 
     def _reset_hand(self, steps=50):
         for _ in range(steps):
-            self.data.set_mocap_pos('mocap', self.hand_init_pos)
-            self.data.set_mocap_quat('mocap', self.reset_mocap_quat)
+            if self.use_dm_backend:
+                self.sim.data.mocap_pos[:] = self.hand_init_pos
+                self.sim.data.mocap_quat[:] = self.reset_mocap_quat
+            else:
+                self.data.set_mocap_pos('mocap', self.hand_init_pos)
+                self.data.set_mocap_quat('mocap', self.reset_mocap_quat)
+
             self.do_simulation([-1, 1], self.frame_skip)
 
     def _get_state_rand_vec(self):
