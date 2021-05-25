@@ -82,7 +82,14 @@ class SawyerTwoBlockBinEnv(SawyerXYZEnv):
         return []
 
     def _get_pos_objects(self):
-        return np.concatenate([self.data.get_geom_xpos('objGeom'), self.data.get_geom_xpos('obj2Geom')])
+        if self.use_dm_backend:
+          obj1 = self.sim.named.data.geom_xpos['objGeom']
+          obj2 = self.sim.named.data.geom_xpos['obj2Geom']
+        else:
+          obj1 = self.data.get_geom_xpos('objGeom')
+          obj2 = self.data.get_geom_xpos('obj2Geom')
+
+        return np.concatenate([obj1, obj2])
 
     def _set_obj_xyz(self, pos):
         qpos = self.data.qpos.flat.copy()

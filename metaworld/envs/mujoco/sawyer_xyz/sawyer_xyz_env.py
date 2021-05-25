@@ -29,7 +29,10 @@ class SawyerMocapBase(MujocoEnv, metaclass=abc.ABCMeta):
         self.reset_mocap_welds()
 
     def get_endeff_pos(self):
-        return self.data.get_body_xpos('hand').copy()
+        if self.use_dm_backend:
+          return self.sim.named.data.xpos['hand'].copy()
+        else:
+          return self.data.get_body_xpos('hand').copy()
 
     def get_env_state(self):
         joint_state = self.sim.get_state()
@@ -257,21 +260,18 @@ class SawyerXYZEnv(SawyerMocapBase, metaclass=abc.ABCMeta):
         Returns:
             np.ndarray: The flat observation array (12 elements)
         """
-        if self.use_dm_backend:
-            return np.zeros(10)
-        else:
-            pos_hand = self.get_endeff_pos()
+        pos_hand = self.get_endeff_pos()
 
-            pos_obj_padded = np.zeros(self._pos_obj_max_len)
-            pos_obj = self._get_pos_objects()
-            assert len(pos_obj) in self._pos_obj_possible_lens
-            pos_obj_padded[:len(pos_obj)] = pos_obj
+        pos_obj_padded = np.zeros(self._pos_obj_max_len)
+        pos_obj = self._get_pos_objects()
+        assert len(pos_obj) in self._pos_obj_possible_lens
+        pos_obj_padded[:len(pos_obj)] = pos_obj
 
-            pos_goal = self._get_pos_goal()
-            if self._partially_observable:
-                pos_goal = np.zeros_like(pos_goal)
+        pos_goal = self._get_pos_goal()
+        if self._partially_observable:
+            pos_goal = np.zeros_like(pos_goal)
         
-            return np.hstack((pos_hand, pos_obj_padded))
+        return np.hstack((pos_hand, pos_obj_padded))
 
     def _get_obs_dict(self):
         obs = self._get_obs()
